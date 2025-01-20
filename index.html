@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-Transform Visualizer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(120deg, #f0f8ff, #e6f7ff);
+        }
+
+        header {
+            background-color: #0078d4;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 1s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            background-color: #0078d4;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #005bb5;
+        }
+
+        .output-section {
+            margin-top: 20px;
+        }
+
+        .output-section h2 {
+            color: #0078d4;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        canvas {
+            margin: 20px 0;
+            display: block;
+            max-width: 100%;
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px;
+            background: #0078d4;
+            color: white;
+            margin-top: 20px;
+        }
+
+        .error {
+            color: red;
+            font-size: 14px;
+        }
+
+        .select-section {
+            margin-bottom: 20px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Z-Transform Visualizer</h1>
+</header>
+
+<div class="container">
+    <div class="input-section">
+        <label for="sequence">Enter Sequence (e.g., 1, 2, 3, 4):</label>
+        <input type="text" id="sequence" placeholder="Enter sequence here...">
+
+        <label for="decayFactor">Decay Factor (default 0.9):</label>
+        <input type="text" id="decayFactor" placeholder="Enter decay factor..." value="0.9">
+
+        <label for="signalType">Choose Signal Type:</label>
+        <select id="signalType">
+            <option value="custom">Custom Sequence</option>
+            <option value="impulse">Impulse Signal</option>
+            <option value="step">Step Signal</option>
+            <option value="sinusoidal">Sinusoidal Signal</option>
+        </select>
+
+        <label for="transferFunction">Discrete Transfer Function (e.g., 1+0.5z^-1 / 1-0.8z^-1):</label>
+        <input type="text" id="transferFunction" placeholder="Enter transfer function...">
+
+        <span id="error" class="error"></span>
+        <button onclick="calculateZTransform()">Calculate Z-Transform</button>
+    </div>
+
+    <div class="output-section" id="output">
+        <h2>Calculation Details</h2>
+        <div id="details"></div>
+    </div>
+
+    <canvas id="zPlane" width="400" height="400"></canvas>
+    <canvas id="magnitudeResponse" width="400" height="400"></canvas>
+</div>
+
+<footer>
+    <p>© 2025 Z-Transform Visualizer by Rising & Renuka</p>
+</footer>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function generateSignal(signalType, length = 10) {
+        switch (signalType) {
+            case "impulse":
+                return [1].concat(Array(length - 1).fill(0));
+            case "step":
+                return Array(length).fill(1);
+            case "sinusoidal":
+                return Array.from({ length }, (_, n) => Math.sin(2 * Math.PI * 0.1 * n));
+            default:
+                return null;
+        }
+    }
+
+    function calculateZTransform() {
+        const input = document.getElementById("sequence").value.trim();
+        const decayFactorInput = document.getElementById("decayFactor").value.trim();
+        const signalType = document.getElementById("signalType").value;
+        const transferFunction = document.getElementById("transferFunction").value.trim();
+        const errorElement = document.getElementById("error");
+        const detailsElement = document.getElementById("details");
+
+        errorElement.textContent = "";
+        detailsElement.innerHTML = "";
+
+        let sequence;
+        if (signalType !== "custom") {
+            sequence = generateSignal(signalType);
+        } else {
+            if (!input) {
+                errorElement.textContent = "Please enter a valid sequence.";
+                return;
+            }
+            sequence = input.split(',').map(Number);
+            if (sequence.some(isNaN)) {
+                errorElement.textContent = "Sequence must contain only numbers separated by commas.";
+                return;
+            }
+        }
+
+        const decayFactor = parseFloat(decayFactorInput);
+        if (isNaN(decayFactor) || decayFactor <= 0 || decayFactor >= 1) {
+            errorElement.textContent = "Decay factor must be a number between 0 and 1.";
+            return;
+        }
+
+        const zPlane = [];
+        const details = [];
+        for (let n = 0; n < sequence.length; n++) {
+            const value = sequence[n] * Math.pow(decayFactor, n);
+            zPlane.push({ real: value, imag: 0 });
+            details.push({ n, value });
+        }
+
+        const table = `<table>
+            <tr><th>n</th><th>Value</th></tr>
+            ${details.map(row => `<tr><td>${row.n}</td><td>${row.value.toFixed(4)}</td></tr>`).join('')}
+        </table>`;
+        detailsElement.innerHTML = table;
+
+        plotPolesAndZeros(zPlane);
+        plotMagnitudeResponse(sequence, decayFactor);
+
+        if (transferFunction) {
+            plotTransferFunction(transferFunction);
+        }
+    }
+
+    function plotPolesAndZeros(zPlane) {
+        const ctx = document.getElementById('zPlane').getContext('2d');
+        new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Poles & Zeros',
+                        data: zPlane.map((point) => ({ x: point.real, y: point.imag })),
+                        backgroundColor: 'red',
+                        pointRadius: 6,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Re(Z)' } },
+                    y: { title: { display: true, text: 'Im(Z)' } }
+                }
+            }
+        });
+    }
+
+    function plotMagnitudeResponse(sequence, decayFactor) {
+        const ctx = document.getElementById('magnitudeResponse').getContext('2d');
+        const freq = Array.from({ length: 100 }, (_, i) => i * 0.1);
+        const magnitude = freq.map(f => sequence.reduce((sum, x, n) => sum + x * Math.pow(f, n), 0));
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: freq,
+                datasets: [
+                    {
+                        label: 'Magnitude Response',
+                        data: magnitude,
+                        borderColor: 'blue',
+                        borderWidth: 2,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: 'Frequency (ω)' } },
+                    y: { title: { display: true, text: '|X(Z)|' } }
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
